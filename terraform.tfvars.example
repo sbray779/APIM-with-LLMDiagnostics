@@ -1,0 +1,32 @@
+# Azure Configuration
+# Uncomment and set these values for your Azure subscription
+# subscription_id = "your-subscription-id-here"
+# tenant_id      = "your-tenant-id-here"
+
+# Resource Configuration
+resource_group_name = "rg-apim-openai-demo"
+location           = "East US"
+environment        = "dev"
+
+# Networking Configuration
+vnet_address_space = ["10.0.0.0/16"]
+apim_subnet_prefix = "10.0.1.0/24"
+pe_subnet_prefix   = "10.0.2.0/24"
+
+# API Management Configuration
+apim_sku_name           = "Developer_1"
+apim_publisher_name     = "Your Organization"
+apim_publisher_email    = "admin@yourorg.com"
+
+# OpenAI Configuration
+openai_sku_name     = "S0"
+gpt_model_name      = "gpt-4"
+gpt_model_version   = "0613"
+gpt_deployment_name = "gpt-4-chat"
+embedding_model_name    = "text-embedding-ada-002"
+embedding_model_version = "2"
+embedding_deployment_name = "text-embedding"
+
+# Capacity Configuration (adjust based on your needs)
+gpt_capacity       = 10
+embedding_capacity = 10

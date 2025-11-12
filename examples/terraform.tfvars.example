@@ -1,0 +1,54 @@
+# Example Terraform configuration for Azure APIM with OpenAI backend
+# Copy this file to terraform.tfvars and customize the values
+
+# Environment Configuration
+environment_name = "dev"
+location         = "East US"
+
+# Optional: Specify custom resource group name (leave empty for auto-generated)
+resource_group_name = ""
+
+# API Management Configuration
+publisher_email = "admin@yourcompany.com"
+publisher_name  = "Your Company API Team"
+apim_sku        = "Developer"  # Options: Developer, Standard, Premium
+apim_sku_capacity = 1
+
+# Azure OpenAI Configuration
+openai_sku_name = "S0"
+
+# GPT Model Configuration
+gpt_model_deployment_name = "gpt-35-turbo"
+gpt_model_name           = "gpt-35-turbo"
+gpt_model_version        = "0613"
+gpt_model_capacity       = 30  # TPM in thousands (30K TPM)
+
+# Embedding Model Configuration
+embedding_model_deployment_name = "text-embedding-ada-002"
+embedding_model_name           = "text-embedding-ada-002"
+embedding_model_version        = "2"
+embedding_model_capacity       = 30  # TPM in thousands (30K TPM)
+
+# Networking Configuration
+vnet_address_space                       = ["10.0.0.0/16"]
+apim_subnet_address_prefix               = "10.0.1.0/24"
+private_endpoint_subnet_address_prefix   = "10.0.2.0/24"
+
+# Monitoring Configuration
+log_analytics_retention_days = 30  # Days to retain logs (30-730)
+eventhub_partition_count     = 2   # Number of Event Hub partitions (2-32)
+eventhub_message_retention   = 1   # Days to retain messages (1-7)
+
+# Security Configuration
+enable_private_endpoints = true
+# allowed_ip_ranges = ["203.0.113.0/24", "198.51.100.0/24"]  # Uncomment if needed
+
+# Resource Tags
+tags = {
+  Environment   = "Development"
+  Project       = "OpenAI-APIM-Integration"
+  CostCenter    = "IT-001"
+  Owner         = "Platform Team"
+  Department    = "Engineering"
+  CreatedBy     = "Terraform"
+}
