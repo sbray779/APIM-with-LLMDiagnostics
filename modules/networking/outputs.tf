@@ -38,10 +38,7 @@ output "keyvault_private_dns_zone_id" {
   value       = azurerm_private_dns_zone.keyvault.id
 }
 
-output "eventhubs_private_dns_zone_id" {
-  description = "The ID of the Event Hubs private DNS zone"
-  value       = azurerm_private_dns_zone.eventhubs.id
-}
+
 
 output "monitor_private_dns_zone_id" {
   description = "The ID of the Monitor private DNS zone"

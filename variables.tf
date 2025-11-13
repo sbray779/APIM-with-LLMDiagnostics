@@ -197,27 +197,7 @@ variable "log_analytics_retention_days" {
   }
 }
 
-variable "eventhub_partition_count" {
-  description = "Number of partitions for Event Hub"
-  type        = number
-  default     = 2
-  
-  validation {
-    condition     = var.eventhub_partition_count >= 2 && var.eventhub_partition_count <= 32
-    error_message = "Event Hub partition count must be between 2 and 32."
-  }
-}
 
-variable "eventhub_message_retention" {
-  description = "Message retention in days for Event Hub"
-  type        = number
-  default     = 1
-  
-  validation {
-    condition     = var.eventhub_message_retention >= 1 && var.eventhub_message_retention <= 7
-    error_message = "Event Hub message retention must be between 1 and 7 days."
-  }
-}
 
 # Security Variables
 variable "enable_private_endpoints" {

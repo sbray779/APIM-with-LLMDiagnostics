@@ -48,3 +48,4 @@ output "applicationinsights_logger_id" {
   description = "The ID of the Application Insights logger"
   value       = azurerm_api_management_logger.applicationinsights.id
 }
+

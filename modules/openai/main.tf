@@ -73,14 +73,8 @@ resource "azurerm_private_endpoint" "openai" {
   
   private_dns_zone_group {
     name                 = "${var.openai_name}-dns-zone-group"
-    private_dns_zone_ids = [data.azurerm_private_dns_zone.openai.id]
+    private_dns_zone_ids = [var.openai_private_dns_zone_id]
   }
   
   tags = var.tags
-}
-
-# Data source for the private DNS zone (created in networking module)
-data "azurerm_private_dns_zone" "openai" {
-  name                = "privatelink.openai.azure.com"
-  resource_group_name = var.resource_group_name
 }

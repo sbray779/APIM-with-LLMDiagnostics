@@ -273,20 +273,6 @@ resource "azurerm_api_management_subscription" "openai" {
   allow_tracing       = false
 }
 
-# Event Hub Logger
-resource "azurerm_api_management_logger" "eventhub" {
-  name                = "openai-logger"
-  api_management_name = azurerm_api_management.main.name
-  resource_group_name = var.resource_group_name
-  
-  eventhub {
-    name              = var.eventhub_name
-    connection_string = var.eventhub_connection_string
-  }
-  
-  description = "Event Hub logger for OpenAI requests"
-}
-
 # Application Insights Logger
 resource "azurerm_api_management_logger" "applicationinsights" {
   name                = "applicationinsights"
@@ -299,6 +285,9 @@ resource "azurerm_api_management_logger" "applicationinsights" {
   
   description = "Application Insights logger for diagnostics"
 }
+
+# Azure Monitor is a built-in logger in APIM - no need to create it explicitly
+# The azuremonitor logger is automatically available for use with LLM diagnostics
 
 # Diagnostic Settings for APIM to enable Gateway and GenAI logs
 resource "azurerm_monitor_diagnostic_setting" "apim" {

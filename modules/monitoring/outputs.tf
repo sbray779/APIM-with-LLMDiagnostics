@@ -30,28 +30,3 @@ output "application_insights_connection_string" {
   sensitive   = true
 }
 
-output "eventhub_namespace_id" {
-  description = "The ID of the Event Hub namespace"
-  value       = azurerm_eventhub_namespace.main.id
-}
-
-output "eventhub_namespace_name" {
-  description = "The name of the Event Hub namespace"
-  value       = azurerm_eventhub_namespace.main.name
-}
-
-output "eventhub_id" {
-  description = "The ID of the Event Hub"
-  value       = azurerm_eventhub.apim_logging.id
-}
-
-output "eventhub_name" {
-  description = "The name of the Event Hub"
-  value       = azurerm_eventhub.apim_logging.name
-}
-
-output "eventhub_connection_string" {
-  description = "The connection string for the Event Hub"
-  value       = azurerm_eventhub_authorization_rule.listen_send.primary_connection_string
-  sensitive   = true
-}

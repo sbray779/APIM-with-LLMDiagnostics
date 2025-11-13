@@ -23,7 +23,6 @@ locals {
   keyvault_name           = "kv-${var.environment_name}-${local.suffix}"
   log_analytics_name      = "log-${var.environment_name}-${local.suffix}"
   app_insights_name       = "ai-${var.environment_name}-${local.suffix}"
-  eventhub_namespace_name = "evhns-${var.environment_name}-${local.suffix}"
 }
 
 # Create Resource Group
@@ -71,6 +70,7 @@ module "openai" {
   openai_name                = local.openai_name
   vnet_id                    = module.networking.vnet_id
   private_endpoint_subnet_id  = module.networking.private_endpoint_subnet_id
+  openai_private_dns_zone_id  = module.networking.openai_private_dns_zone_id
   apim_identity_principal_id  = azurerm_user_assigned_identity.apim_identity.principal_id
   tags                       = local.common_tags
   
@@ -94,12 +94,7 @@ module "monitoring" {
   location                  = azurerm_resource_group.main.location
   log_analytics_name        = local.log_analytics_name
   app_insights_name         = local.app_insights_name
-  eventhub_namespace_name   = local.eventhub_namespace_name
-  vnet_id                   = module.networking.vnet_id
-  private_endpoint_subnet_id = module.networking.private_endpoint_subnet_id
   log_analytics_retention_days = var.log_analytics_retention_days
-  eventhub_partition_count     = var.eventhub_partition_count
-  eventhub_message_retention   = var.eventhub_message_retention
   tags                         = local.common_tags
 }
 
@@ -171,9 +166,7 @@ module "apim" {
   openai_endpoint             = module.openai.endpoint
   keyvault_id                 = azurerm_key_vault.main.id
   keyvault_uri                = azurerm_key_vault.main.vault_uri
-  eventhub_namespace_name                      = module.monitoring.eventhub_namespace_name
-  eventhub_name                               = module.monitoring.eventhub_name
-  eventhub_connection_string                  = module.monitoring.eventhub_connection_string
+
   application_insights_instrumentation_key   = module.monitoring.application_insights_instrumentation_key
   log_analytics_workspace_id                 = module.monitoring.log_analytics_workspace_id
   publisher_email                             = var.publisher_email

@@ -36,8 +36,6 @@ private_endpoint_subnet_address_prefix   = "10.0.2.0/24"
 
 # Monitoring Configuration
 log_analytics_retention_days = 30  # Days to retain logs (30-730)
-eventhub_partition_count     = 2   # Number of Event Hub partitions (2-32)
-eventhub_message_retention   = 1   # Days to retain messages (1-7)
 
 # Security Configuration
 enable_private_endpoints = true
