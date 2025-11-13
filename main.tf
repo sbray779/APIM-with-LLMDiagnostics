@@ -23,7 +23,7 @@ provider "azurerm" {
       recover_soft_deleted_key_vaults = true
     }
   }
-  subscription_id = "21b0a515-0e9c-4ae3-879c-096fbd49fd52"
+  subscription_id = "subscription GUID"
 }
 
 provider "azapi" {
