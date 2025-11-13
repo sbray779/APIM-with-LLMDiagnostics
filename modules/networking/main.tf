@@ -143,12 +143,6 @@ resource "azurerm_private_dns_zone" "keyvault" {
   tags                = var.tags
 }
 
-resource "azurerm_private_dns_zone" "eventhubs" {
-  name                = "privatelink.servicebus.windows.net"
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
-}
-
 resource "azurerm_private_dns_zone" "monitor" {
   name                = "privatelink.monitor.azure.com"
   resource_group_name = var.resource_group_name
@@ -169,15 +163,6 @@ resource "azurerm_private_dns_zone_virtual_network_link" "keyvault" {
   name                  = "keyvault-dns-link"
   resource_group_name   = var.resource_group_name
   private_dns_zone_name = azurerm_private_dns_zone.keyvault.name
-  virtual_network_id    = azurerm_virtual_network.main.id
-  registration_enabled  = false
-  tags                  = var.tags
-}
-
-resource "azurerm_private_dns_zone_virtual_network_link" "eventhubs" {
-  name                  = "eventhubs-dns-link"
-  resource_group_name   = var.resource_group_name
-  private_dns_zone_name = azurerm_private_dns_zone.eventhubs.name
   virtual_network_id    = azurerm_virtual_network.main.id
   registration_enabled  = false
   tags                  = var.tags

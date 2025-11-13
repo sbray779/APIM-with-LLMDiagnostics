@@ -23,6 +23,11 @@ variable "private_endpoint_subnet_id" {
   type        = string
 }
 
+variable "openai_private_dns_zone_id" {
+  description = "ID of the OpenAI private DNS zone"
+  type        = string
+}
+
 variable "apim_identity_principal_id" {
   description = "Principal ID of the APIM managed identity"
   type        = string

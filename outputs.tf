@@ -90,15 +90,7 @@ output "application_insights_instrumentation_key" {
   sensitive   = true
 }
 
-output "eventhub_namespace_name" {
-  description = "The name of the Event Hub namespace"
-  value       = module.monitoring.eventhub_namespace_name
-}
 
-output "eventhub_name" {
-  description = "The name of the Event Hub for APIM logging"
-  value       = module.monitoring.eventhub_name
-}
 
 # Key Vault Outputs
 output "key_vault_name" {

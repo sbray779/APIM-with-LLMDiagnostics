@@ -48,21 +48,7 @@ variable "keyvault_uri" {
   type        = string
 }
 
-variable "eventhub_namespace_name" {
-  description = "Name of the Event Hub namespace"
-  type        = string
-}
 
-variable "eventhub_name" {
-  description = "Name of the Event Hub"
-  type        = string
-}
-
-variable "eventhub_connection_string" {
-  description = "Connection string for the Event Hub"
-  type        = string
-  sensitive   = true
-}
 
 variable "application_insights_instrumentation_key" {
   description = "Application Insights instrumentation key"
