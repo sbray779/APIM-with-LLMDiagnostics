@@ -18,6 +18,19 @@ resource "azurerm_network_security_group" "apim" {
     destination_address_prefix = "VirtualNetwork"
   }
 
+  # Allow management traffic from Internet (needed for destroy operations)
+  security_rule {
+    name                       = "AllowAPIMManagementInternet"
+    priority                   = 105
+    direction                  = "Inbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_range     = "3443"
+    source_address_prefix      = "Internet"
+    destination_address_prefix = "VirtualNetwork"
+  }
+
   # APIM Gateway
   security_rule {
     name                       = "AllowClientToGateway"
@@ -80,6 +93,19 @@ resource "azurerm_network_security_group" "apim" {
     source_address_prefix      = "VirtualNetwork"
     destination_address_prefix = "AzureKeyVault"
   }
+
+  # Allow outbound management traffic
+  security_rule {
+    name                       = "AllowAPIMManagementOutbound"
+    priority                   = 130
+    direction                  = "Outbound"
+    access                     = "Allow"
+    protocol                   = "Tcp"
+    source_port_range          = "*"
+    destination_port_ranges    = ["80", "443", "1433", "3443"]
+    source_address_prefix      = "VirtualNetwork"
+    destination_address_prefix = "Internet"
+  }
 }
 
 resource "azurerm_network_security_group" "private_endpoint" {
@@ -104,7 +130,7 @@ resource "azurerm_subnet" "apim" {
   resource_group_name  = var.resource_group_name
   virtual_network_name = azurerm_virtual_network.main.name
   address_prefixes     = [var.apim_subnet_address_prefix]
-  
+
   service_endpoints = [
     "Microsoft.Storage",
     "Microsoft.Sql",

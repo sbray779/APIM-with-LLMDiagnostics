@@ -1,3 +1,8 @@
+# Updates:
+
+11-14 Updated to take into account delays between enabling diagnostic setting enablement on the APIM instance and enabling LLM logging on the API. This ensures that the diagnostic setting enablement has completed attempting to enable LLM logging.
+
+
 # Azure APIM with OpenAI Backend - Terraform
 
 This Terraform repository deploys Azure API Management (APIM) with Azure OpenAI backend services, including comprehensive LLM logging and diagnostics capabilities using the azapi provider.
@@ -8,8 +13,9 @@ The deployment creates a secure, enterprise-ready infrastructure with the follow
 
 - **Azure OpenAI Service**: Private deployment with GPT and embedding models
 - **Azure API Management**: Gateway for OpenAI APIs with advanced policies
-- **Comprehensive Monitoring**: Application Insights, Log Analytics, Event Hub
+- **Comprehensive Monitoring**: Application Insights, Log Analytics
 - **Advanced Diagnostics**: LLM-specific logging using azapi provider
+- **Token Usage Reporting**: Optional Logic App for automated chargeback reports
 - **Network Security**: Private endpoints, VNet integration, NSGs
 - **Identity Management**: Managed identities for secure service-to-service authentication
 
@@ -88,12 +94,16 @@ The deployment creates a secure, enterprise-ready infrastructure with the follow
 ├── resources.tf           # Main resource definitions
 ├── variables.tf           # Input variables
 ├── outputs.tf            # Output values
+├── LOGIC_APP_INTEGRATION.md  # Logic App deployment guide
 ├── modules/
 │   ├── networking/       # VNet, subnets, NSGs, private DNS
 │   ├── openai/          # Azure OpenAI service and deployments
 │   ├── apim/            # API Management service and configuration
-│   ├── monitoring/      # Log Analytics, App Insights, Event Hub
-│   └── diagnostics/     # APIM diagnostics using azapi provider
+│   ├── monitoring/      # Log Analytics, App Insights
+│   ├── diagnostics/     # APIM diagnostics using azapi provider
+│   └── logicapp/        # Logic App for token usage reporting (optional)
+│       ├── workflows/   # Logic App workflow definitions
+│       └── README.md    # Module-specific documentation
 └── examples/
     └── terraform.tfvars.example  # Example configuration
 ```
@@ -108,6 +118,17 @@ The deployment creates a secure, enterprise-ready infrastructure with the follow
 | `location` | Azure region | `East US` | Any valid Azure region |
 | `publisher_email` | APIM publisher email | `admin@company.com` | Valid email address |
 
+### Logic App Token Usage Reporting (Optional)
+
+| Variable | Description | Default | Required When Enabled |
+|----------|-------------|---------|---------------------|
+| `deploy_logic_app` | Enable Logic App deployment | `false` | Set to `true` to enable |
+| `logic_app_service_plan_sku` | App Service Plan SKU for Logic App | `WS1` | WS1/WS2/WS3 or EP1/EP2/EP3 |
+| `logic_app_storage_container_name` | Container for reports | `token-reports` | Optional |
+| `logic_app_always_on` | Keep Logic App always on | `true` | Optional |
+
+**Note**: The Logic App automatically creates a dedicated App Service Plan with the specified SKU (Workflow Standard or Elastic Premium). See [LOGIC_APP_INTEGRATION.md](LOGIC_APP_INTEGRATION.md) for detailed setup instructions.
+
 ### API Management SKUs
 
 | SKU | Description | Use Case | Capacity |
@@ -119,17 +140,20 @@ The deployment creates a secure, enterprise-ready infrastructure with the follow
 ### OpenAI Models
 
 #### Supported GPT Models
-- `gpt-35-turbo` (Default)
+- `gpt-4o-mini` (Default - Version: 2024-07-18) ⭐ **Cost-Effective & Recommended**
+- `gpt-4o` (Full capability version)
+- `gpt-4-turbo` (Previous generation)
+- `gpt-35-turbo` (Legacy - consider upgrading)
 - `gpt-35-turbo-16k`
 - `gpt-4`
 - `gpt-4-32k`
-- `gpt-4-turbo`
-- `gpt-4o`
 
 #### Supported Embedding Models
-- `text-embedding-ada-002` (Default)
-- `text-embedding-3-small`
-- `text-embedding-3-large`
+- `text-embedding-3-small` (Default - Version: 1) ⭐ **Latest & Recommended**
+- `text-embedding-3-large` (Higher capability, more dimensions)
+- `text-embedding-ada-002` (Legacy - consider upgrading)
+
+> **Note**: The configuration now defaults to cost-effective yet capable models (`gpt-4o-mini` and `text-embedding-3-small`) which offer excellent performance-to-cost ratio. GPT-4o-mini provides nearly the same capabilities as GPT-4o at a significantly lower cost, while the new embedding models provide better multi-language performance and support adjustable dimensions for cost optimization.
 
 ## 🔒 Security Features
 

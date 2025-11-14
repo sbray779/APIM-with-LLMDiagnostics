@@ -5,22 +5,34 @@ resource "azurerm_api_management" "main" {
   resource_group_name = var.resource_group_name
   publisher_name      = var.publisher_name
   publisher_email     = var.publisher_email
-  
+
   sku_name = "${var.apim_sku}_${var.apim_sku_capacity}"
-  
+
   # Enable virtual network integration
   virtual_network_type = "External"
-  
+
   virtual_network_configuration {
     subnet_id = var.apim_subnet_id
   }
-  
+
   # Configure managed identity
   identity {
     type         = "UserAssigned"
     identity_ids = [var.apim_identity_id]
   }
-  
+
+  # Lifecycle management to prevent destroy issues
+  lifecycle {
+    ignore_changes = [
+      # Ignore changes to virtual_network_configuration during destroy
+      virtual_network_configuration,
+      # Ignore certificate changes that might prevent destroy
+      certificate,
+      # Ignore hostname configuration changes
+      hostname_configuration
+    ]
+  }
+
   # Security configurations - disable weak cipher suites and protocols
   security {
     tls_ecdhe_ecdsa_with_aes128_cbc_sha_ciphers_enabled = false
@@ -35,7 +47,7 @@ resource "azurerm_api_management" "main" {
     tls_rsa_with_aes256_gcm_sha384_ciphers_enabled      = false
     triple_des_ciphers_enabled                          = false
   }
-  
+
   tags = var.tags
 }
 
@@ -46,9 +58,9 @@ resource "azurerm_api_management_named_value" "openai_api_key" {
   resource_group_name = var.resource_group_name
   display_name        = "OpenAI-API-Key"
   secret              = true
-  
+
   value_from_key_vault {
-    secret_id = "${var.keyvault_uri}secrets/openai-api-key"
+    secret_id          = "${var.keyvault_uri}secrets/openai-api-key"
     identity_client_id = var.apim_identity_client_id
   }
 }
@@ -70,7 +82,7 @@ resource "azurerm_api_management_backend" "openai" {
   protocol            = "http"
   url                 = "${var.openai_endpoint}openai/"
   description         = "Azure OpenAI Service Backend"
-  
+
   tls {
     validate_certificate_chain = true
     validate_certificate_name  = true
@@ -87,7 +99,7 @@ resource "azurerm_api_management_api" "openai" {
   path                  = "openai"
   protocols             = ["https"]
   subscription_required = true
-  
+
   import {
     content_format = "openapi+json"
     content_value = jsonencode({
@@ -278,11 +290,11 @@ resource "azurerm_api_management_logger" "applicationinsights" {
   name                = "applicationinsights"
   api_management_name = azurerm_api_management.main.name
   resource_group_name = var.resource_group_name
-  
+
   application_insights {
     instrumentation_key = var.application_insights_instrumentation_key
   }
-  
+
   description = "Application Insights logger for diagnostics"
 }
 
@@ -291,26 +303,26 @@ resource "azurerm_api_management_logger" "applicationinsights" {
 
 # Diagnostic Settings for APIM to enable Gateway and GenAI logs
 resource "azurerm_monitor_diagnostic_setting" "apim" {
-  name                               = "apim-diagnostics"
-  target_resource_id                 = azurerm_api_management.main.id
-  log_analytics_workspace_id         = var.log_analytics_workspace_id
-  log_analytics_destination_type     = "Dedicated"
+  name                           = "apim-diagnostics"
+  target_resource_id             = azurerm_api_management.main.id
+  log_analytics_workspace_id     = var.log_analytics_workspace_id
+  log_analytics_destination_type = "Dedicated"
 
   # API Management Gateway Logs
   enabled_log {
     category = "GatewayLogs"
   }
-  
+
   # Generative AI Gateway Logs (LLM logs for Azure OpenAI integration)
   enabled_log {
     category = "GatewayLlmLogs"
   }
-  
+
   # WebSocket Connection Logs (for WebSocket APIs)
   enabled_log {
     category = "WebSocketConnectionLogs"
   }
-  
+
   # Additional useful log categories
   enabled_log {
     category = "DeveloperPortalAuditLogs"
@@ -322,7 +334,7 @@ resource "azurerm_api_management_api_policy" "openai" {
   api_name            = azurerm_api_management_api.openai.name
   api_management_name = azurerm_api_management.main.name
   resource_group_name = var.resource_group_name
-  
+
   xml_content = <<XML
 <policies>
     <inbound>
@@ -347,4 +359,10 @@ resource "azurerm_api_management_api_policy" "openai" {
     </on-error>
 </policies>
 XML
+
+  # Explicitly depend on resources that the policy references
+  depends_on = [
+    azurerm_api_management_named_value.openai_api_key,
+    azurerm_api_management_backend.openai
+  ]
 }

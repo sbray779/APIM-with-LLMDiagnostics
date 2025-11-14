@@ -130,15 +130,29 @@ output "test_embeddings_url" {
   value       = "${module.apim.apim_gateway_url}/${module.apim.openai_api_path}/deployments/${module.openai.embedding_deployment_name}/embeddings?api-version=2023-05-15"
 }
 
+# Logic App Outputs (when enabled)
+output "logic_app_name" {
+  description = "The name of the Logic App for token usage reporting"
+  value       = var.deploy_logic_app ? module.logicapp[0].logic_app_name : null
+}
+
+output "logic_app_storage_account_name" {
+  description = "The name of the storage account for Logic App token reports"
+  value       = var.deploy_logic_app ? module.logicapp[0].storage_account_name : null
+}
+
 # Connection Information
 output "connection_info" {
   description = "Connection information for the deployed resources"
   value = {
-    apim_gateway_url    = module.apim.apim_gateway_url
-    openai_api_path     = module.apim.openai_api_path
-    subscription_key    = module.apim.subscription_key
-    gpt_deployment     = module.openai.gpt_deployment_name
-    embedding_deployment = module.openai.embedding_deployment_name
+    apim_gateway_url      = module.apim.apim_gateway_url
+    openai_api_path       = module.apim.openai_api_path
+    subscription_key      = module.apim.subscription_key
+    gpt_deployment        = module.openai.gpt_deployment_name
+    embedding_deployment  = module.openai.embedding_deployment_name
+    logic_app_enabled     = var.deploy_logic_app
+    logic_app_name        = var.deploy_logic_app ? module.logicapp[0].logic_app_name : null
+    token_reports_storage = var.deploy_logic_app ? module.logicapp[0].storage_account_name : null
   }
   sensitive = true
 }

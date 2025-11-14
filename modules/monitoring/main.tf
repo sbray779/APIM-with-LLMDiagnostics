@@ -5,11 +5,11 @@ resource "azurerm_log_analytics_workspace" "main" {
   resource_group_name = var.resource_group_name
   sku                 = "PerGB2018"
   retention_in_days   = var.log_analytics_retention_days
-  
+
   # Disable public network access for security
   internet_ingestion_enabled = false
   internet_query_enabled     = true
-  
+
   tags = var.tags
 }
 
@@ -20,11 +20,11 @@ resource "azurerm_application_insights" "main" {
   resource_group_name = var.resource_group_name
   workspace_id        = azurerm_log_analytics_workspace.main.id
   application_type    = "web"
-  
+
   # Disable public network access for security
   internet_ingestion_enabled = false
   internet_query_enabled     = true
-  
+
   tags = var.tags
 }
 

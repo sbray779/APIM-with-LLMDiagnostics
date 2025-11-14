@@ -18,15 +18,15 @@ apim_sku_capacity = 1
 openai_sku_name = "S0"
 
 # GPT Model Configuration
-gpt_model_deployment_name = "gpt-35-turbo"
-gpt_model_name           = "gpt-35-turbo"
-gpt_model_version        = "0613"
+gpt_model_deployment_name = "gpt-4o-mini"
+gpt_model_name           = "gpt-4o-mini"
+gpt_model_version        = "2024-07-18"
 gpt_model_capacity       = 30  # TPM in thousands (30K TPM)
 
 # Embedding Model Configuration
-embedding_model_deployment_name = "text-embedding-ada-002"
-embedding_model_name           = "text-embedding-ada-002"
-embedding_model_version        = "2"
+embedding_model_deployment_name = "text-embedding-3-small"
+embedding_model_name           = "text-embedding-3-small"
+embedding_model_version        = "1"
 embedding_model_capacity       = 30  # TPM in thousands (30K TPM)
 
 # Networking Configuration
@@ -40,6 +40,18 @@ log_analytics_retention_days = 30  # Days to retain logs (30-730)
 # Security Configuration
 enable_private_endpoints = true
 # allowed_ip_ranges = ["203.0.113.0/24", "198.51.100.0/24"]  # Uncomment if needed
+
+# Logic App Configuration (Token Usage Reporting)
+# Set to true to deploy Logic App for APIM token usage reporting
+deploy_logic_app = false
+
+# App Service Plan SKU for Logic App - WS1/WS2/WS3 (Workflow Standard) or EP1/EP2/EP3 (Elastic Premium)
+# Only used when deploy_logic_app is true
+logic_app_service_plan_sku = "WS1"
+
+# Logic App storage container for token usage reports
+logic_app_storage_container_name = "token-reports"
+logic_app_always_on = true
 
 # Resource Tags
 tags = {

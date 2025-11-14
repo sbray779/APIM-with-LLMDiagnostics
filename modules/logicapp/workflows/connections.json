@@ -1,0 +1,58 @@
+{
+    "managedApiConnections": {
+        "azureblob": {
+            "api": {
+                "id": "/subscriptions/${subscription_id}/providers/Microsoft.Web/locations/${location}/managedApis/azureblob"
+            },
+            "authentication": {
+                "type": "ManagedServiceIdentity"
+            },
+            "connection": {
+                "id": "${blob_connection_id}"
+            },
+            "connectionProperties": {
+                "authentication": {
+                    "audience": "https://storage.azure.com/",
+                    "type": "ManagedServiceIdentity"
+                }
+            },
+            "connectionRuntimeUrl": "https://management.azure.com${blob_connection_id}"
+        },
+        "azuremonitorlogs": {
+            "api": {
+                "id": "/subscriptions/${subscription_id}/providers/Microsoft.Web/locations/${location}/managedApis/azuremonitorlogs"
+            },
+            "authentication": {
+                "type": "ManagedServiceIdentity"
+            },
+            "connection": {
+                "id": "${logs_connection_id}"
+            },
+            "connectionProperties": {
+                "authentication": {
+                    "additionalAudiences": [
+                        "https://api.loganalytics.io"
+                    ],
+                    "audience": "https://management.core.windows.net/",
+                    "type": "ManagedServiceIdentity"
+                }
+            },
+            "connectionRuntimeUrl": "https://management.azure.com${logs_connection_id}"
+        }
+    },
+    "serviceProviderConnections": {
+        "AzureBlob": {
+            "displayName": "storageAccount",
+            "parameterSetName": "ManagedServiceIdentity",
+            "parameterValues": {
+                "authProvider": {
+                    "Type": "ManagedServiceIdentity"
+                },
+                "blobStorageEndpoint": "@appsetting('AzureBlob_blobStorageEndpoint')"
+            },
+            "serviceProvider": {
+                "id": "/serviceProviders/AzureBlob"
+            }
+        }
+    }
+}
