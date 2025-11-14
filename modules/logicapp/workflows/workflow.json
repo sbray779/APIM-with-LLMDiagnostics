@@ -1,0 +1,123 @@
+{
+    "definition": {
+        "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+        "contentVersion": "1.0.0.0",
+        "parameters": {
+            "logAnalyticsWorkspaceName": {
+                "type": "string",
+                "defaultValue": "${log_analytics_workspace_name}"
+            },
+            "resourceGroupName": {
+                "type": "string",
+                "defaultValue": "${resource_group_name}"
+            },
+            "subscriptionId": {
+                "type": "string",
+                "defaultValue": "${subscription_id}"
+            },
+            "blobStorageEndpoint": {
+                "type": "string",
+                "defaultValue": "@appsetting('AzureBlob_blobStorageEndpoint')"
+            }
+        },
+        "actions": {
+            "Run_query_and_list_results": {
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "referenceName": "azuremonitorlogs"
+                        }
+                    },
+                    "method": "post",
+                    "body": "ApiManagementGatewayLogs\n| where TimeGenerated >= ago(24h)\n| join kind=inner ApiManagementGatewayLlmLog on CorrelationId\n| where SequenceNumber == 0 and IsRequestSuccess\n// Summarize by ProductId + ModelName over the last 24 hours\n| summarize\n    TotalTokens       = sum(TotalTokens),\n    CompletionTokens  = sum(CompletionTokens),\n    PromptTokens      = sum(PromptTokens),\n    // Add representative/aggregated versions of original columns:\n    FirstSeen         = min(TimeGenerated),\n    LastSeen          = max(TimeGenerated),\n    Regions           = make_set(Region, 8),\n    CallerIpAddresses = make_set(CallerIpAddress, 8),\n    Caches            = make_set(Cache, 8),\n    BackendIds        = make_set(BackendId, 8),\n    Calls             = count()\n  by ProductId, ModelName\n| project\n    // Keep your token columns + useful rollups + original identifiers\n    ProductId,\n    ModelName,\n    PromptTokens,\n    CompletionTokens,\n    TotalTokens,\n    Calls,\n    FirstSeen,\n    LastSeen,\n    Regions,\n    CallerIpAddresses,\n    Caches,\n    BackendIds\n| order by TotalTokens desc\n",
+                    "path": "/queryData",
+                    "queries": {
+                        "subscriptions": "@parameters('subscriptionId')",
+                        "resourcegroups": "@parameters('resourceGroupName')",
+                        "resourcetype": "Log Analytics Workspace",
+                        "resourcename": "@parameters('logAnalyticsWorkspaceName')",
+                        "timerange": "Last 24 hours"
+                    }
+                },
+                "runAfter": {}
+            },
+            "Create_CSV_table": {
+                "type": "Table",
+                "inputs": {
+                    "from": "@body('Run_query_and_list_results')?['value']",
+                    "format": "CSV"
+                },
+                "runAfter": {
+                    "Run_query_and_list_results": [
+                        "SUCCEEDED"
+                    ]
+                }
+            },
+            "Create_blob_(V2)": {
+                "type": "ApiConnection",
+                "inputs": {
+                    "host": {
+                        "connection": {
+                            "referenceName": "azureblob"
+                        }
+                    },
+                    "method": "post",
+                    "body": "@body('Create_CSV_table')",
+                    "headers": {
+                        "ReadFileMetadataFromServer": true
+                    },
+                    "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent(parameters('blobStorageEndpoint')))}/files",
+                    "queries": {
+                        "folderPath": "/${storage_container_name}",
+                        "name": "token-usage-report_@{utcNow('yyyy-MM-dd-HHmm')}.csv",
+                        "queryParametersSingleEncoded": true
+                    }
+                },
+                "runAfter": {
+                    "Create_CSV_table": [
+                        "SUCCEEDED"
+                    ]
+                },
+                "runtimeConfiguration": {
+                    "contentTransfer": {
+                        "transferMode": "Chunked"
+                    }
+                }
+            },
+            "Send_notification_on_success": {
+                "type": "Compose",
+                "inputs": {
+                    "message": "Token usage report workflow completed successfully",
+                    "timestamp": "@utcNow()",
+                    "recordsProcessed": "@length(body('Run_query_and_list_results')?['value'])",
+                    "blobName": "token-usage-report_@{utcNow('yyyy-MM-dd-HHmm')}.csv"
+                },
+                "runAfter": {
+                    "Create_blob_(V2)": [
+                        "SUCCEEDED"
+                    ]
+                }
+            }
+        },
+        "outputs": {
+            "workflowResult": {
+                "type": "Object",
+                "value": "@body('Send_notification_on_success')"
+            }
+        },
+        "triggers": {
+            "Recurrence": {
+                "type": "Recurrence",
+                "description": "Schedule to run token usage report daily",
+                "recurrence": {
+                    "interval": 1,
+                    "frequency": "Day",
+                    "timeZone": "UTC",
+                    "startTime": "@{utcNow()}"
+                }
+            }
+        }
+    },
+    "kind": "Stateful"
+}

@@ -42,19 +42,19 @@ variable "openai_sku_name" {
 variable "gpt_model_deployment_name" {
   description = "Name for the GPT model deployment"
   type        = string
-  default     = "gpt-35-turbo"
+  default     = "gpt-4o-mini"
 }
 
 variable "gpt_model_name" {
   description = "Name of the GPT model"
   type        = string
-  default     = "gpt-35-turbo"
+  default     = "gpt-4o-mini"
 }
 
 variable "gpt_model_version" {
   description = "Version of the GPT model"
   type        = string
-  default     = "0125"
+  default     = "2024-07-18"
 }
 
 variable "gpt_model_capacity" {
@@ -66,19 +66,19 @@ variable "gpt_model_capacity" {
 variable "embedding_model_deployment_name" {
   description = "Name for the embedding model deployment"
   type        = string
-  default     = "text-embedding-ada-002"
+  default     = "text-embedding-3-small"
 }
 
 variable "embedding_model_name" {
   description = "Name of the embedding model"
   type        = string
-  default     = "text-embedding-ada-002"
+  default     = "text-embedding-3-small"
 }
 
 variable "embedding_model_version" {
   description = "Version of the embedding model"
   type        = string
-  default     = "2"
+  default     = "1"
 }
 
 variable "embedding_model_capacity" {

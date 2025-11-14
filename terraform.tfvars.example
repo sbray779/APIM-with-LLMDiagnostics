@@ -1,32 +1,44 @@
-# Azure Configuration
-# Uncomment and set these values for your Azure subscription
-# subscription_id = "your-subscription-id-here"
-# tenant_id      = "your-tenant-id-here"
-
-# Resource Configuration
-resource_group_name = "rg-apim-openai-demo"
-location           = "East US"
-environment        = "dev"
-
-# Networking Configuration
-vnet_address_space = ["10.0.0.0/16"]
-apim_subnet_prefix = "10.0.1.0/24"
-pe_subnet_prefix   = "10.0.2.0/24"
+# Environment Configuration
+environment_name = "dev"
+location        = "East US 2"
 
 # API Management Configuration
-apim_sku_name           = "Developer_1"
-apim_publisher_name     = "Your Organization"
-apim_publisher_email    = "admin@yourorg.com"
+publisher_name  = "Your Organization"
+publisher_email = "admin@yourorg.com"
+apim_sku       = "Developer"
 
 # OpenAI Configuration
-openai_sku_name     = "S0"
-gpt_model_name      = "gpt-4"
-gpt_model_version   = "0613"
-gpt_deployment_name = "gpt-4-chat"
-embedding_model_name    = "text-embedding-ada-002"
-embedding_model_version = "2"
-embedding_deployment_name = "text-embedding"
+gpt_model_name              = "gpt-4o-mini"
+gpt_model_version          = "2024-07-18"
+gpt_model_deployment_name  = "gpt-4o-mini"
+gpt_model_capacity         = 30
 
-# Capacity Configuration (adjust based on your needs)
-gpt_capacity       = 10
-embedding_capacity = 10
+embedding_model_name              = "text-embedding-3-small"
+embedding_model_version          = "1"
+embedding_model_deployment_name  = "text-embedding-3-small"
+embedding_model_capacity         = 30
+
+# Networking Configuration
+vnet_address_space                       = ["10.0.0.0/16"]
+apim_subnet_address_prefix               = "10.0.1.0/24"
+private_endpoint_subnet_address_prefix   = "10.0.2.0/24"
+
+# Monitoring Configuration
+log_analytics_retention_days = 30
+
+# Logic App Configuration (Token Usage Reporting)
+deploy_logic_app = true
+# App Service Plan SKU for Logic App - WS1/WS2/WS3 (Workflow Standard) or EP1/EP2/EP3 (Elastic Premium)
+logic_app_service_plan_sku = "WS1"
+logic_app_storage_container_name = "token-reports"
+logic_app_always_on = true
+
+# Security Configuration
+enable_private_endpoints = true
+
+# Tags
+tags = {
+  Environment = "Development"
+  Project     = "APIM-OpenAI"
+  Owner       = "Infrastructure Team"
+}
