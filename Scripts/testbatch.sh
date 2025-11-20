@@ -1,21 +1,17 @@
 #!/bin/bash
 
-# Azure OpenAI Batch Testing Script via APIM using Azure CLI
+# Azure OpenAI Batch Testing Script via APIM
 # This script tests Azure OpenAI batch operations through an APIM instance
-# It automatically retrieves APIM subscription keys using Azure CLI
+# Requires an APIM subscription key to be configured
 
 # ============================================================================
 # CONFIGURATION - UPDATE THESE VARIABLES FOR YOUR ENVIRONMENT
 # ============================================================================
 
-# Azure subscription and resource group
-SUBSCRIPTION_ID="your-subscription-id"
-APIM_RESOURCE_GROUP="your-resource-group-name"
-APIM_SERVICE_NAME="your-apim-service-name"
-
 # APIM endpoint configuration
 APIM_GATEWAY_URL="https://your-apim-instance.azure-api.net"
 API_NAME="your-api-name"
+APIM_SUBSCRIPTION_KEY="your-apim-subscription-key"
 
 # Azure OpenAI configuration
 DEPLOYMENT_NAME="your-deployment-name"
@@ -28,7 +24,6 @@ API_VERSION="2024-12-01-preview"
 TIMESTAMP=$(date +%Y%m%d_%H%M%S)
 BATCH_FILE="batch_input_${TIMESTAMP}.jsonl"
 RESULTS_FILE="batch_results_${TIMESTAMP}.jsonl"
-SUBSCRIPTION_KEY=""
 FILE_ID=""
 BATCH_ID=""
 
@@ -68,13 +63,6 @@ print_info() {
 check_prerequisites() {
     print_header "Checking Prerequisites"
     
-    # Check if Azure CLI is installed
-    if ! command -v az &> /dev/null; then
-        print_error "Azure CLI is not installed. Please install it from: https://learn.microsoft.com/cli/azure/install-azure-cli"
-        exit 1
-    fi
-    print_success "Azure CLI is installed"
-    
     # Check if jq is installed (for JSON parsing)
     if ! command -v jq &> /dev/null; then
         print_error "jq is not installed. Please install it (e.g., 'brew install jq' or 'apt-get install jq')"
@@ -89,50 +77,12 @@ check_prerequisites() {
     fi
     print_success "curl is installed"
     
-    # Check Azure CLI login status
-    if ! az account show &> /dev/null; then
-        print_warning "Not logged into Azure CLI. Attempting to login..."
-        az login
-        if [ $? -ne 0 ]; then
-            print_error "Azure CLI login failed"
-            exit 1
-        fi
-    fi
-    print_success "Azure CLI authenticated"
-    
-    # Set the subscription
-    az account set --subscription "$SUBSCRIPTION_ID" 2>/dev/null
-    if [ $? -eq 0 ]; then
-        CURRENT_SUB=$(az account show --query name -o tsv)
-        print_success "Using subscription: $CURRENT_SUB"
-    else
-        print_error "Failed to set subscription: $SUBSCRIPTION_ID"
+    # Validate APIM subscription key is provided
+    if [ -z "$APIM_SUBSCRIPTION_KEY" ] || [ "$APIM_SUBSCRIPTION_KEY" == "your-apim-subscription-key" ]; then
+        print_error "APIM_SUBSCRIPTION_KEY is not configured. Please set it in the script."
         exit 1
     fi
-}
-
-retrieve_apim_subscription_key() {
-    print_header "Retrieving APIM Subscription Key"
-    
-    print_info "Fetching subscription keys from APIM: $APIM_SERVICE_NAME"
-    
-    # Get the first subscription key from APIM
-    SUBSCRIPTION_KEY=$(az apim subscription list \
-        --resource-group "$APIM_RESOURCE_GROUP" \
-        --service-name "$APIM_SERVICE_NAME" \
-        --query "[0].primaryKey" \
-        -o tsv 2>/dev/null)
-    
-    if [ -z "$SUBSCRIPTION_KEY" ] || [ "$SUBSCRIPTION_KEY" == "null" ]; then
-        print_error "Failed to retrieve APIM subscription key"
-        print_info "Please verify:"
-        print_info "  - Resource Group: $APIM_RESOURCE_GROUP"
-        print_info "  - APIM Service: $APIM_SERVICE_NAME"
-        print_info "  - You have permissions to read APIM subscriptions"
-        exit 1
-    fi
-    
-    print_success "Retrieved APIM subscription key: ${SUBSCRIPTION_KEY:0:8}..."
+    print_success "APIM subscription key is configured"
 }
 
 create_batch_file() {
@@ -166,7 +116,7 @@ upload_batch_file() {
     # Upload the file using curl
     local http_code=$(curl -s -w "%{http_code}" -o "$response_file" \
         -X POST "$upload_url" \
-        -H "Ocp-Apim-Subscription-Key: $SUBSCRIPTION_KEY" \
+        -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY" \
         -H "Content-Type: multipart/form-data" \
         -F "purpose=batch" \
         -F "file=@${BATCH_FILE};type=application/json")
@@ -209,7 +159,7 @@ create_batch_job() {
     # Create the batch job
     local http_code=$(curl -s -w "%{http_code}" -o "$response_file" \
         -X POST "$batch_url" \
-        -H "Ocp-Apim-Subscription-Key: $SUBSCRIPTION_KEY" \
+        -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY" \
         -H "Content-Type: application/json" \
         -d "$batch_body")
     
@@ -249,7 +199,7 @@ monitor_batch_status() {
         
         local http_code=$(curl -s -w "%{http_code}" -o "$response_file" \
             -X GET "$status_url" \
-            -H "Ocp-Apim-Subscription-Key: $SUBSCRIPTION_KEY")
+            -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY")
         
         if [ "$http_code" -eq 200 ]; then
             status=$(jq -r '.status' "$response_file")
@@ -289,7 +239,7 @@ retrieve_results() {
     
     curl -s -o "$response_file" \
         -X GET "$batch_url" \
-        -H "Ocp-Apim-Subscription-Key: $SUBSCRIPTION_KEY"
+        -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY"
     
     local output_file_id=$(jq -r '.output_file_id' "$response_file")
     rm "$response_file"
@@ -306,7 +256,7 @@ retrieve_results() {
     
     curl -s -o "$RESULTS_FILE" \
         -X GET "$results_url" \
-        -H "Ocp-Apim-Subscription-Key: $SUBSCRIPTION_KEY"
+        -H "Ocp-Apim-Subscription-Key: $APIM_SUBSCRIPTION_KEY"
     
     if [ -f "$RESULTS_FILE" ]; then
         print_success "Results downloaded to: $RESULTS_FILE"
@@ -394,7 +344,6 @@ main() {
     
     # Execute the workflow
     check_prerequisites
-    retrieve_apim_subscription_key
     create_batch_file
     upload_batch_file
     create_batch_job
