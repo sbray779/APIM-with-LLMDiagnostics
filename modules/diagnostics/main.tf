@@ -34,7 +34,7 @@ resource "azapi_resource" "apim_service_diagnostics" {
           }
         }
         response = {
-          headers = ["x-ms-spillover-from-deployment"]
+          headers = []
           body = {
             bytes = 0
           }
@@ -112,7 +112,7 @@ resource "azapi_resource" "openai_api_diagnostics" {
           }
         }
         response = {
-          headers = ["x-ms-spillover-from-deployment"]
+          headers = []
           body = {
             bytes = 0
           }
