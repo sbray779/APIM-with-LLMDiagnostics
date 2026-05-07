@@ -6,6 +6,24 @@
 *.tfvars
 !terraform.tfvars.example
 
+# Bicep
+*.bicepparam
+
+# Test scripts (contain sensitive subscription keys)
+test-scripts/
+
+# Deployment logs and output files
+apply*.txt
+plan*.txt
+*.log
+
+# Azurite (local Azure storage emulator)
+__azurite_db_table__.json
+AzuriteConfig/
+
+# Temporary deployment files
+temp_workflows/
+
 # OS generated files
 .DS_Store
 .DS_Store?
@@ -21,9 +39,6 @@ Thumbs.db
 *.swp
 *.swo
 *~
-
-# Logs
-*.log
 
 # Environment files
 .env

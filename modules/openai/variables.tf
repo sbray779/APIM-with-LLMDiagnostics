@@ -54,7 +54,7 @@ variable "gpt_model_name" {
 variable "gpt_model_version" {
   description = "Version of the GPT model"
   type        = string
-  default     = "2024-07-18"
+  default     = "2024-09-03"
 }
 
 variable "gpt_model_capacity" {

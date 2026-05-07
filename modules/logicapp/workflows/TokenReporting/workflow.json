@@ -1,0 +1,85 @@
+{
+  "definition": {
+    "$schema": "https://schema.management.azure.com/providers/Microsoft.Logic/schemas/2016-06-01/workflowdefinition.json#",
+    "contentVersion": "1.0.0.0",
+    "actions": {
+      "Run_query_and_list_results": {
+        "type": "ApiConnection",
+        "inputs": {
+          "host": {
+            "connection": {
+              "referenceName": "azuremonitorlogs"
+            }
+          },
+          "method": "post",
+          "body": "ApiManagementGatewayLogs\n| where TimeGenerated >= ago(8d)\n| join kind=inner ApiManagementGatewayLlmLog on CorrelationId\n| where SequenceNumber == 0 and IsRequestSuccess\n// Summarize by ProductId + ModelName over the last 24 hours\n| summarize\n    TotalTokens       = sum(TotalTokens),\n    CompletionTokens  = sum(CompletionTokens),\n    PromptTokens      = sum(PromptTokens),\n    // Add representative/aggregated versions of original columns:\n    FirstSeen         = min(TimeGenerated),\n    LastSeen          = max(TimeGenerated),\n    Regions           = make_set(Region, 8),\n    CallerIpAddresses = make_set(CallerIpAddress, 8),\n    Caches            = make_set(Cache, 8),\n    BackendIds        = make_set(BackendId, 8),\n    Calls             = count()\n  by ProductId, ModelName\n| project\n    // Keep your token columns + useful rollups + original identifiers\n    ProductId,\n    ModelName,\n    PromptTokens,\n    CompletionTokens,\n    TotalTokens,\n    Calls,\n    FirstSeen,\n    LastSeen,\n    Regions,\n    CallerIpAddresses,\n    Caches,\n    BackendIds\n| order by TotalTokens desc\n\n",
+          "path": "/queryData",
+          "queries": {
+            "subscriptions": "@appsetting('WORKFLOWS_SUBSCRIPTION_ID')",
+            "resourcegroups": "@appsetting('WORKFLOWS_RESOURCE_GROUP_NAME')",
+            "resourcetype": "Log Analytics Workspace",
+            "resourcename": "@appsetting('LOG_ANALYTICS_WORKSPACE_NAME')",
+            "timerange": "Set in query"
+          }
+        },
+        "runAfter": {}
+      },
+      "Create_CSV_table": {
+        "type": "Table",
+        "inputs": {
+          "from": "@body('Run_query_and_list_results')?['value']",
+          "format": "CSV"
+        },
+        "runAfter": {
+          "Run_query_and_list_results": [
+            "SUCCEEDED"
+          ]
+        }
+      },
+      "Create_blob_(V2)": {
+        "type": "ApiConnection",
+        "inputs": {
+          "host": {
+            "connection": {
+              "referenceName": "azureblob"
+            }
+          },
+          "method": "post",
+          "body": "@body('Create_CSV_table')",
+          "headers": {
+            "ReadFileMetadataFromServer": true
+          },
+          "path": "/v2/datasets/@{encodeURIComponent(encodeURIComponent(concat('https://', appsetting('STORAGE_ACCOUNT_NAME'), '.blob.core.windows.net/')))}/files",
+          "queries": {
+            "folderPath": "@appsetting('STORAGE_CONTAINER_NAME')",
+            "name": "dailyChargeBackReport.csv",
+            "queryParametersSingleEncoded": true
+          }
+        },
+        "runAfter": {
+          "Create_CSV_table": [
+            "SUCCEEDED"
+          ]
+        },
+        "runtimeConfiguration": {
+          "contentTransfer": {
+            "transferMode": "Chunked"
+          }
+        }
+      }
+    },
+    "outputs": {},
+    "triggers": {
+      "Recurrence": {
+        "type": "Recurrence",
+        "description": "Scheduled trigger to query workspace and return token usage summary",
+        "recurrence": {
+          "interval": 1,
+          "frequency": "Day",
+          "timeZone": "Central Standard Time"
+        }
+      }
+    }
+  },
+  "kind": "Stateful"
+}

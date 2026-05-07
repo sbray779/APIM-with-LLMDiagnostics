@@ -20,7 +20,7 @@ openai_sku_name = "S0"
 # GPT Model Configuration
 gpt_model_deployment_name = "gpt-4o-mini"
 gpt_model_name           = "gpt-4o-mini"
-gpt_model_version        = "2024-07-18"
+gpt_model_version        = "2024-09-03"
 gpt_model_capacity       = 30  # TPM in thousands (30K TPM)
 
 # Embedding Model Configuration

@@ -101,6 +101,7 @@ module "networking" {
   vnet_address_space                     = var.vnet_address_space
   apim_subnet_address_prefix             = var.apim_subnet_address_prefix
   private_endpoint_subnet_address_prefix = var.private_endpoint_subnet_address_prefix
+  logicapp_subnet_address_prefix         = var.logicapp_subnet_address_prefix
   tags                                   = local.common_tags
 }
 
@@ -190,20 +191,6 @@ resource "azurerm_key_vault" "main" {
   tags = local.common_tags
 }
 
-# Store OpenAI API key in Key Vault
-resource "azurerm_key_vault_secret" "openai_key" {
-  name         = "openai-api-key"
-  value        = module.openai.primary_access_key
-  key_vault_id = azurerm_key_vault.main.id
-
-  depends_on = [azurerm_key_vault.main]
-  
-  # Lifecycle management to prevent issues during destroy
-  lifecycle {
-    ignore_changes = [value]
-  }
-}
-
 # API Management Module
 module "apim" {
   source = "./modules/apim"
@@ -229,7 +216,6 @@ module "apim" {
 
   # Explicit dependencies to ensure proper creation order
   depends_on = [
-    azurerm_key_vault_secret.openai_key,
     module.networking,
     module.openai,
     module.monitoring
@@ -252,10 +238,14 @@ module "diagnostics" {
   source = "./modules/diagnostics"
 
   resource_group_name           = azurerm_resource_group.main.name
+  location                      = azurerm_resource_group.main.location
+  environment                   = var.environment_name
   apim_service_name             = module.apim.apim_name
+  apim_id                       = module.apim.apim_id
   openai_api_name               = module.apim.openai_api_name
   applicationinsights_logger_id = module.apim.applicationinsights_logger_id
   log_analytics_workspace_id    = module.monitoring.log_analytics_workspace_id
+  tags                          = local.common_tags
 
   # Ensure diagnostics are created after all APIM resources are fully configured
   depends_on = [module.apim, time_sleep.monitor_create]
@@ -283,14 +273,20 @@ module "logicapp" {
   count  = var.deploy_logic_app ? 1 : 0
   source = "./modules/logicapp"
 
-  logic_app_name           = "apim-token-reporting-${var.environment_name}-${local.suffix}"
+  logic_app_name           = "apim-tokens-v2-${var.environment_name}-${local.suffix}"
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
+  environment              = var.environment_name
   app_service_plan_sku_name = var.logic_app_service_plan_sku
 
   # Use existing Log Analytics workspace from monitoring module
+  use_existing_log_analytics   = true
   log_analytics_workspace_name = module.monitoring.log_analytics_workspace_name
   log_analytics_workspace_id   = module.monitoring.log_analytics_workspace_id
+
+  # VNet integration
+  enable_vnet_integration = var.logic_app_enable_vnet_integration
+  logicapp_subnet_id      = module.networking.logicapp_subnet_id
 
   storage_account_name         = "apimtokenreports${var.environment_name}"
   storage_container_name       = var.logic_app_storage_container_name
@@ -299,5 +295,5 @@ module "logicapp" {
 
   tags = local.common_tags
 
-  depends_on = [module.monitoring, module.apim]
+  depends_on = [module.monitoring, module.apim, module.networking]
 }

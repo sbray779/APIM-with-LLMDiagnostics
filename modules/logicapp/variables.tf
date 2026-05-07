@@ -53,6 +53,12 @@ variable "log_analytics_workspace_id" {
   default     = null
 }
 
+variable "use_existing_log_analytics" {
+  description = "Whether to use an existing Log Analytics workspace (true) or create a new one (false). Use this instead of checking if workspace_name is null."
+  type        = bool
+  default     = false
+}
+
 variable "log_analytics_retention_days" {
   description = "Number of days to retain logs in Log Analytics workspace"
   type        = number
@@ -68,6 +74,24 @@ variable "always_on" {
   description = "Should the Logic App be always on"
   type        = bool
   default     = true
+}
+
+variable "logicapp_subnet_id" {
+  description = "Subnet ID for Logic App VNet integration (optional)"
+  type        = string
+  default     = null
+}
+
+variable "enable_vnet_integration" {
+  description = "Whether to enable VNet integration for the Logic App"
+  type        = bool
+  default     = false
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  default     = "dev"
 }
 
 variable "tags" {

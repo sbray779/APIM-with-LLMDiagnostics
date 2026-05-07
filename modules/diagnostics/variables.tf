@@ -8,6 +8,11 @@ variable "apim_service_name" {
   type        = string
 }
 
+variable "apim_id" {
+  description = "Full resource ID of the API Management service"
+  type        = string
+}
+
 variable "openai_api_name" {
   description = "Name of the OpenAI API in APIM"
   type        = string
@@ -21,5 +26,22 @@ variable "applicationinsights_logger_id" {
 variable "log_analytics_workspace_id" {
   description = "ID of the Log Analytics workspace for Azure Monitor diagnostics"
   type        = string
+}
+
+variable "location" {
+  description = "Azure region for resources"
+  type        = string
+}
+
+variable "environment" {
+  description = "Environment name (dev, staging, prod)"
+  type        = string
+  default     = "dev"
+}
+
+variable "tags" {
+  description = "Tags to apply to all resources"
+  type        = map(string)
+  default     = {}
 }
 

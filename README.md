@@ -1,5 +1,7 @@
 # Updates:
 
+04-07-2026 **Security Enhancement**: Request and response bodies are no longer logged to protect sensitive data. Only `X-Cached-Tokens` and `X-Model` are captured via custom response headers (standard token metrics are available in LLM logging). This enables cached token tracking for chargeback while avoiding data duplication. Updated KQL queries accordingly.
+
 11-14 Updated to take into account delays between enabling diagnostic setting enablement on the APIM instance and enabling LLM logging on the API. This ensures that the diagnostic setting enablement has completed attempting to enable LLM logging.
 
 
@@ -13,8 +15,9 @@ The deployment creates a secure, enterprise-ready infrastructure with the follow
 
 - **Azure OpenAI Service**: Private deployment with GPT and embedding models
 - **Azure API Management**: Gateway for OpenAI APIs with advanced policies
+- **Secure Token Tracking**: Outbound policy extracts token metrics (including cached tokens) to response headers for chargeback reporting without logging sensitive content
 - **Comprehensive Monitoring**: Application Insights, Log Analytics
-- **Advanced Diagnostics**: LLM-specific logging using azapi provider
+- **Advanced Diagnostics**: APIM diagnostics with body filtering (no prompts/responses logged)
 - **Token Usage Reporting**: Optional Logic App for automated chargeback reports
 - **Network Security**: Private endpoints, VNet integration, NSGs
 - **Identity Management**: Managed identities for secure service-to-service authentication
@@ -174,6 +177,7 @@ The deployment creates a secure, enterprise-ready infrastructure with the follow
 - **Rate Limiting**: Built-in throttling policies
 - **IP Filtering**: Optional IP address restrictions
 - **Data Masking**: Sensitive headers masked in logs
+- **No Body Logging**: Request/response bodies not logged (prompts and LLM responses remain private)
 
 ## 📊 Monitoring and Diagnostics
 
@@ -182,28 +186,98 @@ The deployment includes advanced diagnostics using the azapi provider:
 
 - **Service-Level Diagnostics**: Overall APIM service monitoring
 - **API-Level Diagnostics**: OpenAI API specific logging
-- **Operation-Level Diagnostics**: Individual operation tracking
-  - Chat Completions (65KB request/response logging)
-  - Completions (65KB request/response logging)
-  - Embeddings (32KB request/response logging)
+- **LLM Logging**: Token usage (prompt_tokens, completion_tokens, total_tokens) captured natively
+- **Cached Token Tracking**: Custom header for cached_tokens (not available in standard LLM logging)
+
+#### Security: No Body Logging
+
+**Critical**: Request and response bodies are **not logged** to protect sensitive data:
+- **RequestBody**: Empty (prompts/user content not logged)
+- **ResponseBody**: Empty (LLM responses not logged)
+- **Token Metrics**: Standard metrics via LLM logging; cached_tokens via custom response header
+
+This ensures compliance with data privacy requirements while still enabling chargeback reporting.
+
+### Cached Token Tracking
+
+Azure OpenAI models (GPT-4o and newer) support **prompt caching**, which reduces costs by reusing previously computed prompt prefixes. The APIM outbound policy extracts the `cached_tokens` metric (not available in standard LLM logging) and exposes it as a response header.
+
+**How it works:**
+1. The **inbound** policy detects streaming vs. non-streaming requests
+2. The **outbound** policy parses the response JSON and extracts cached token count
+3. Custom headers set by APIM policy:
+   - `X-Cached-Tokens`: Cached tokens from prompt (for cost savings calculation)
+   - `X-Model`: Model name used (for correlation)
+4. Standard token metrics (prompt_tokens, completion_tokens, total_tokens) are captured via LLM logging
+5. Azure Monitor diagnostic settings capture custom headers in `ApiManagementGatewayLogs.ResponseHeaders`
+6. Request/response bodies are **not logged** (security requirement)
+
+> **Note**: Prompt caching requires ≥1,024 tokens in the prompt with the first 1,024 tokens identical between requests. Cache hits are reported for every additional 128 identical tokens.
+
+#### Memory Considerations
+
+The APIM policy uses `context.Response.Body.As<JObject>()` to parse the response JSON and extract token metrics. This approach has memory implications:
+
+| Scenario | Memory Impact | Recommendation |
+|----------|---------------|----------------|
+| Typical requests (max_tokens ≤ 4096) | ~50-200 KB | ✅ No issues |
+| Large responses (max_tokens = 16K) | ~500 KB | ✅ Generally safe |
+| Very large responses (max_tokens = 128K) | ~2 MB+ | ⚠️ Consider limits |
+
+**Best Practice**: If your application allows very large responses (max_tokens > 16,384), consider:
+1. Enforcing `max_tokens` limits at the APIM policy level
+2. Using Premium SKU APIM for higher memory thresholds
+3. Monitoring policy execution failures in Application Insights
+
+The current implementation safely defaults token headers to `"0"` if parsing fails, ensuring the API call completes even if metrics extraction encounters issues.
 
 ### Log Analytics Queries
 
-Query token usage by subscription:
+> **Note**: Standard token metrics (prompt_tokens, completion_tokens, total_tokens) are available in LLM logging tables. The queries below focus on cached_tokens which is captured via custom response headers.
+
+Query cached token savings by subscription:
 ```kusto
 ApiManagementGatewayLogs
-| where OperationName in ("ChatCompletions_Create", "Completions_Create")
-| extend RequestBody = parse_json(RequestBody)
-| extend ResponseBody = parse_json(ResponseBody)
-| extend PromptTokens = toint(ResponseBody.usage.prompt_tokens)
-| extend CompletionTokens = toint(ResponseBody.usage.completion_tokens)
-| extend TotalTokens = toint(ResponseBody.usage.total_tokens)
+| where OperationName == "ChatCompletions_Create"
+| extend Headers = parse_json(ResponseHeaders)
+| extend CachedTokens = toint(Headers["X-Cached-Tokens"])
+| extend Model = tostring(Headers["X-Model"])
+| where CachedTokens > 0
 | summarize 
     TotalRequests = count(),
-    TotalPromptTokens = sum(PromptTokens),
-    TotalCompletionTokens = sum(CompletionTokens),
-    TotalTokens = sum(TotalTokens)
-by SubscriptionId, OperationName
+    TotalCachedTokens = sum(CachedTokens),
+    AvgCachedTokensPerRequest = avg(CachedTokens)
+by ApimSubscriptionId, Model
+```
+
+Query cached token usage over time:
+```kusto
+ApiManagementGatewayLogs
+| where OperationName == "ChatCompletions_Create"
+| extend Headers = parse_json(ResponseHeaders)
+| extend CachedTokens = toint(Headers["X-Cached-Tokens"])
+| where CachedTokens > 0
+| summarize
+    TotalRequests = count(),
+    TotalCachedTokens = sum(CachedTokens),
+    AvgCachedTokensPerRequest = avg(CachedTokens)
+by ApimSubscriptionId, bin(TimeGenerated, 1h)
+| order by TimeGenerated desc
+```
+
+Requests with cache hits by model:
+```kusto
+ApiManagementGatewayLogs
+| where OperationName == "ChatCompletions_Create"
+| extend Headers = parse_json(ResponseHeaders)
+| extend CachedTokens = toint(Headers["X-Cached-Tokens"])
+| extend Model = tostring(Headers["X-Model"])
+| where CachedTokens > 0
+| summarize
+    CacheHitRequests = count(),
+    TotalCachedTokens = sum(CachedTokens)
+by Model, bin(TimeGenerated, 1d)
+| order by TimeGenerated desc
 ```
 
 ### Event Hub Integration
@@ -257,7 +331,7 @@ Write-Output "Embedding dimension: $($response.data[0].embedding.Count)"
 
 ### Adding Custom Policies
 
-To add custom APIM policies, modify the `modules/apim/main.tf` file:
+The API policy in `modules/apim/main.tf` includes built-in streaming detection and cached token extraction. To add additional custom policies (e.g., rate limiting, quotas), add them to the inbound section after the existing policies:
 
 ```hcl
 resource "azurerm_api_management_api_policy" "openai" {
@@ -267,15 +341,18 @@ resource "azurerm_api_management_api_policy" "openai" {
 <policies>
     <inbound>
         <base />
+        <!-- Existing: backend service, api-key, streaming detection -->
         <!-- Add your custom policies here -->
         <rate-limit calls="100" renewal-period="60" />
         <quota calls="1000" renewal-period="3600" />
     </inbound>
-    <!-- ... rest of policy -->
+    <!-- backend, outbound (cached token extraction), on-error -->
 </policies>
 XML
 }
 ```
+
+> **Important**: Do not remove the streaming detection from `<inbound>` or the cached token extraction from `<outbound>` — these are required for accurate chargeback reporting. When using XML entities in C# expressions within Terraform heredoc, use `&lt;` for `<`, `&amp;&amp;` for `&&`, and `&quot;` for `"` to ensure valid XML.
 
 ### Environment-Specific Configurations
 

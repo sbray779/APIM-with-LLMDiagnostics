@@ -116,7 +116,7 @@ variable "gpt_model_name" {
 variable "gpt_model_version" {
   description = "Version of the GPT model"
   type        = string
-  default     = "2024-07-18"
+  default     = "2024-09-03"
 }
 
 variable "gpt_model_capacity" {
@@ -185,6 +185,12 @@ variable "private_endpoint_subnet_address_prefix" {
   default     = "10.0.2.0/24"
 }
 
+variable "logicapp_subnet_address_prefix" {
+  description = "Address prefix for Logic App subnet"
+  type        = string
+  default     = "10.0.3.0/24"
+}
+
 # Monitoring Variables
 variable "log_analytics_retention_days" {
   description = "Number of days to retain logs in Log Analytics"
@@ -245,6 +251,12 @@ variable "logic_app_storage_container_name" {
 
 variable "logic_app_always_on" {
   description = "Should the Logic App be always on"
+  type        = bool
+  default     = true
+}
+
+variable "logic_app_enable_vnet_integration" {
+  description = "Whether to enable VNet integration for the Logic App"
   type        = bool
   default     = true
 }

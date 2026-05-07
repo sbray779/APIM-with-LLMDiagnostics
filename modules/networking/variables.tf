@@ -31,6 +31,12 @@ variable "private_endpoint_subnet_address_prefix" {
   default     = "10.0.2.0/24"
 }
 
+variable "logicapp_subnet_address_prefix" {
+  description = "Address prefix for Logic App subnet"
+  type        = string
+  default     = "10.0.3.0/24"
+}
+
 variable "tags" {
   description = "Tags to apply to all resources"
   type        = map(string)

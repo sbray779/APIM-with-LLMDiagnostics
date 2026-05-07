@@ -10,9 +10,18 @@ The module creates the following resources:
 - **Log Analytics Workspace**: For querying API Management gateway logs (optional - can use existing)
 - **Storage Account**: For storing token usage reports as CSV files
 - **Storage Account**: Separate account for Logic App runtime
-- **API Connections**: Secure connections using access keys and Managed Identity
+- **V2 API Connections**: Created via PowerShell script (see note below) with Managed Identity authentication
 - **Blob Container**: Dedicated container for report data
 - **RBAC Assignments**: Permissions for Logic App to access Log Analytics and Storage
+
+### API Connections Note
+
+**Important**: Azure V2 managed API connections with Managed Service Identity authentication cannot be properly created using Terraform's `azurerm_api_connection` resource. This module uses a `null_resource` with `local-exec` to run `create-api-connections.ps1` during `terraform apply`. This script creates:
+- Azure Blob connection with `managedIdentityAuth`
+- Azure Monitor Logs connection with `managedIdentityAuth`
+- Access policies for the Logic App's managed identity
+
+This approach mirrors how the Bicep deployment (`Deploy-Infrastructure.ps1`) handles API connections.
 
 ## Prerequisites
 

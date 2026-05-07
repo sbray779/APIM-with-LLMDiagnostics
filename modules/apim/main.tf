@@ -51,20 +51,7 @@ resource "azurerm_api_management" "main" {
   tags = var.tags
 }
 
-# Named Values for OpenAI API Key and Managed Identity Client ID
-resource "azurerm_api_management_named_value" "openai_api_key" {
-  name                = "openai-api-key"
-  api_management_name = azurerm_api_management.main.name
-  resource_group_name = var.resource_group_name
-  display_name        = "OpenAI-API-Key"
-  secret              = true
-
-  value_from_key_vault {
-    secret_id          = "${var.keyvault_uri}secrets/openai-api-key"
-    identity_client_id = var.apim_identity_client_id
-  }
-}
-
+# Named Value for APIM Managed Identity Client ID
 resource "azurerm_api_management_named_value" "apim_client_id" {
   name                = "apim-client-id"
   api_management_name = azurerm_api_management.main.name
@@ -301,19 +288,20 @@ resource "azurerm_api_management_logger" "applicationinsights" {
 # Azure Monitor is a built-in logger in APIM - no need to create it explicitly
 # The azuremonitor logger is automatically available for use with LLM diagnostics
 
-# Diagnostic Settings for APIM to enable Gateway and GenAI logs
+# Diagnostic Settings for APIM to enable Gateway logs
 resource "azurerm_monitor_diagnostic_setting" "apim" {
   name                           = "apim-diagnostics"
   target_resource_id             = azurerm_api_management.main.id
   log_analytics_workspace_id     = var.log_analytics_workspace_id
   log_analytics_destination_type = "Dedicated"
 
-  # API Management Gateway Logs
+  # API Management Gateway Logs - body logging controlled via diagnostics settings
   enabled_log {
     category = "GatewayLogs"
   }
 
-  # Generative AI Gateway Logs (LLM logs for Azure OpenAI integration)
+  # GatewayLlmLogs - captures LLM token metrics (prompt_tokens, completion_tokens, total_tokens)
+  # Note: This does NOT log request/response bodies - only token usage metrics
   enabled_log {
     category = "GatewayLlmLogs"
   }
@@ -341,12 +329,13 @@ resource "azurerm_api_management_api_policy" "openai" {
         <base />
         <!-- Set backend service -->
         <set-backend-service backend-id="openai-backend" />
+        <!-- Authenticate using APIM's user-assigned managed identity -->
+        <authentication-managed-identity resource="https://cognitiveservices.azure.com" client-id="${var.apim_identity_client_id}" />
         <!-- Remove subscription key from query parameters -->
         <set-query-parameter name="subscription-key" exists-action="delete" />
-        <!-- Set required headers -->
-        <set-header name="api-key" exists-action="override">
-            <value>{{openai-api-key}}</value>
-        </set-header>
+        <!-- Remove any api-key header (using managed identity instead) -->
+        <set-header name="api-key" exists-action="delete" />
+
     </inbound>
     <backend>
         <base />
@@ -362,7 +351,6 @@ XML
 
   # Explicitly depend on resources that the policy references
   depends_on = [
-    azurerm_api_management_named_value.openai_api_key,
     azurerm_api_management_backend.openai
   ]
 }

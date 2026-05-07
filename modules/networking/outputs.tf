@@ -44,3 +44,18 @@ output "monitor_private_dns_zone_id" {
   description = "The ID of the Monitor private DNS zone"
   value       = azurerm_private_dns_zone.monitor.id
 }
+
+output "blob_private_dns_zone_id" {
+  description = "The ID of the Blob private DNS zone"
+  value       = azurerm_private_dns_zone.blob.id
+}
+
+output "logicapp_subnet_id" {
+  description = "The ID of the Logic App subnet"
+  value       = azurerm_subnet.logicapp.id
+}
+
+output "logicapp_subnet_name" {
+  description = "The name of the Logic App subnet"
+  value       = azurerm_subnet.logicapp.name
+}

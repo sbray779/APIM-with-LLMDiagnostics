@@ -98,6 +98,44 @@ output "key_vault_name" {
   value       = azurerm_key_vault.main.name
 }
 
+# Diagnostics Outputs
+output "apim_gateway_logs_dcr_id" {
+  description = "The ID of the workspace transformation DCR for ApiManagementGatewayLogs"
+  value       = module.diagnostics.apim_gateway_logs_dcr_id
+}
+
+# Logic App Outputs (conditional)
+output "logic_app_name" {
+  description = "The name of the Logic App for token usage reporting"
+  value       = var.deploy_logic_app ? module.logicapp[0].logic_app_name : null
+}
+
+output "logic_app_principal_id" {
+  description = "The principal ID of the Logic App's managed identity"
+  value       = var.deploy_logic_app ? module.logicapp[0].logic_app_principal_id : null
+}
+
+output "logic_app_dce_endpoint" {
+  description = "The Data Collection Endpoint URL for Logic App error logging"
+  value       = var.deploy_logic_app ? module.logicapp[0].dce_endpoint : null
+}
+
+output "logic_app_dcr_immutable_id" {
+  description = "The Data Collection Rule immutable ID for Logic App error logging"
+  value       = var.deploy_logic_app ? module.logicapp[0].dcr_immutable_id : null
+}
+
+output "logic_app_error_workspace_name" {
+  description = "The name of the error Log Analytics workspace"
+  value       = var.deploy_logic_app ? module.logicapp[0].error_workspace_name : null
+}
+
+# Networking - Logic App Subnet
+output "logicapp_subnet_id" {
+  description = "The ID of the Logic App subnet"
+  value       = module.networking.logicapp_subnet_id
+}
+
 output "key_vault_uri" {
   description = "The URI of the Key Vault"
   value       = azurerm_key_vault.main.vault_uri
@@ -128,12 +166,6 @@ output "test_completions_url" {
 output "test_embeddings_url" {
   description = "URL for testing embeddings API"
   value       = "${module.apim.apim_gateway_url}/${module.apim.openai_api_path}/deployments/${module.openai.embedding_deployment_name}/embeddings?api-version=2023-05-15"
-}
-
-# Logic App Outputs (when enabled)
-output "logic_app_name" {
-  description = "The name of the Logic App for token usage reporting"
-  value       = var.deploy_logic_app ? module.logicapp[0].logic_app_name : null
 }
 
 output "logic_app_storage_account_name" {
