@@ -214,7 +214,7 @@ resource "azapi_resource" "openai_api_azure_monitor_diagnostics" {
           }
         }
         response = {
-          headers = ["x-ms-spillover-from-deployment"]
+          headers = ["x-ms-spillover-from-deployment", "x-ms-deployment-name"]
           body = {
             bytes = 0
           }
@@ -246,7 +246,7 @@ resource "azapi_resource" "openai_api_azure_monitor_diagnostics" {
           }
         }
         response = {
-          headers = []
+          headers = ["x-ms-spillover-from-deployment", "x-ms-deployment-name"]
           body = {
             bytes = 0
           }

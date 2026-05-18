@@ -1,8 +1,8 @@
 # Updates:
 
-05-07-2026 **PTU Spillover Tracking**: Frontend response diagnostics now capture the `x-ms-spillover-from-deployment` header returned by Azure OpenAI when a PTU (Provisioned Throughput Unit) deployment spills over to a pay-as-you-go deployment. This enables identification of spillover events in `ApiManagementGatewayLogs` for capacity planning and cost attribution.
+05-18-2026 **Deployment Name Tracking**: Frontend and backend response diagnostics now capture the `x-ms-deployment-name` header returned by Azure OpenAI, identifying the exact deployment that processed each request. Combined with `x-ms-spillover-from-deployment`, this enables precise per-deployment attribution in `ApiManagementGatewayLogs` for capacity planning and cost analysis.
 
-04-07-2026 **Security Enhancement**: Request and response bodies are no longer logged to protect sensitive data. Only `X-Cached-Tokens` and `X-Model` are captured via custom response headers (standard token metrics are available in LLM logging). This enables cached token tracking for chargeback while avoiding data duplication. Updated KQL queries accordingly.
+05-07-2026 **PTU Spillover Tracking**: Frontend and backend response diagnostics now capture the `x-ms-spillover-from-deployment` header returned by Azure OpenAI when a PTU (Provisioned Throughput Unit) deployment spills over to a pay-as-you-go deployment. This enables identification of spillover events in `ApiManagementGatewayLogs` for capacity planning and cost attribution.
 
 11-14 Updated to take into account delays between enabling diagnostic setting enablement on the APIM instance and enabling LLM logging on the API. This ensures that the diagnostic setting enablement has completed attempting to enable LLM logging.
 
@@ -17,7 +17,6 @@ The deployment creates a secure, enterprise-ready infrastructure with the follow
 
 - **Azure OpenAI Service**: Private deployment with GPT and embedding models
 - **Azure API Management**: Gateway for OpenAI APIs with advanced policies
-- **Secure Token Tracking**: Outbound policy extracts token metrics (including cached tokens) to response headers for chargeback reporting without logging sensitive content
 - **Comprehensive Monitoring**: Application Insights, Log Analytics
 - **Advanced Diagnostics**: APIM diagnostics with body filtering (no prompts/responses logged)
 - **Token Usage Reporting**: Optional Logic App for automated chargeback reports
@@ -189,104 +188,64 @@ The deployment includes advanced diagnostics using the azapi provider:
 - **Service-Level Diagnostics**: Overall APIM service monitoring
 - **API-Level Diagnostics**: OpenAI API specific logging
 - **LLM Logging**: Token usage (prompt_tokens, completion_tokens, total_tokens) captured natively
-- **Cached Token Tracking**: Custom header for cached_tokens (not available in standard LLM logging)
-- **PTU Spillover Tracking**: Frontend response header `x-ms-spillover-from-deployment` logged to identify when requests overflow from a PTU deployment to a pay-as-you-go deployment
+- **PTU Spillover Tracking**: Frontend and backend response headers `x-ms-spillover-from-deployment` and `x-ms-deployment-name` logged to identify spillover events and the exact deployment that served each request
 
 #### Security: No Body Logging
 
 **Critical**: Request and response bodies are **not logged** to protect sensitive data:
 - **RequestBody**: Empty (prompts/user content not logged)
 - **ResponseBody**: Empty (LLM responses not logged)
-- **Token Metrics**: Standard metrics via LLM logging; cached_tokens via custom response header
+- **Token Metrics**: Standard metrics (prompt_tokens, completion_tokens, total_tokens) via LLM logging
 
 This ensures compliance with data privacy requirements while still enabling chargeback reporting.
 
-### Cached Token Tracking
+### PTU Spillover and Deployment Tracking
 
-Azure OpenAI models (GPT-4o and newer) support **prompt caching**, which reduces costs by reusing previously computed prompt prefixes. The APIM outbound policy extracts the `cached_tokens` metric (not available in standard LLM logging) and exposes it as a response header.
+When Azure OpenAI routes a request, it returns response headers that identify which deployment handled it and whether a PTU spillover occurred. These headers are captured in both the frontend and backend response diagnostics and are available in `ApiManagementGatewayLogs`.
+
+- **`x-ms-deployment-name`**: The name of the Azure OpenAI deployment that processed the request. Useful for per-deployment attribution, capacity planning, and verifying which deployment (PTU or PAYG) served a given request.
+- **`x-ms-spillover-from-deployment`**: Present when a PTU deployment was at capacity and the request overflowed to a pay-as-you-go deployment. The value is the name of the PTU deployment that triggered the spillover.
 
 **How it works:**
-1. The **inbound** policy detects streaming vs. non-streaming requests
-2. The **outbound** policy parses the response JSON and extracts cached token count
-3. Custom headers set by APIM policy:
-   - `X-Cached-Tokens`: Cached tokens from prompt (for cost savings calculation)
-   - `X-Model`: Model name used (for correlation)
-4. Standard token metrics (prompt_tokens, completion_tokens, total_tokens) are captured via LLM logging
-5. Azure Monitor diagnostic settings capture custom headers in `ApiManagementGatewayLogs.ResponseHeaders`
-6. The `x-ms-spillover-from-deployment` header (set by Azure OpenAI on PTU spillover) is captured in the frontend response headers
-7. Request/response bodies are **not logged** (security requirement)
-
-> **Note**: Prompt caching requires ≥1,024 tokens in the prompt with the first 1,024 tokens identical between requests. Cache hits are reported for every additional 128 identical tokens.
-
-#### Memory Considerations
-
-The APIM policy uses `context.Response.Body.As<JObject>()` to parse the response JSON and extract token metrics. This approach has memory implications:
-
-| Scenario | Memory Impact | Recommendation |
-|----------|---------------|----------------|
-| Typical requests (max_tokens ≤ 4096) | ~50-200 KB | ✅ No issues |
-| Large responses (max_tokens = 16K) | ~500 KB | ✅ Generally safe |
-| Very large responses (max_tokens = 128K) | ~2 MB+ | ⚠️ Consider limits |
-
-**Best Practice**: If your application allows very large responses (max_tokens > 16,384), consider:
-1. Enforcing `max_tokens` limits at the APIM policy level
-2. Using Premium SKU APIM for higher memory thresholds
-3. Monitoring policy execution failures in Application Insights
-
-The current implementation safely defaults token headers to `"0"` if parsing fails, ensuring the API call completes even if metrics extraction encounters issues.
+1. Azure Monitor diagnostic settings capture `x-ms-deployment-name` and `x-ms-spillover-from-deployment` from both frontend and backend response headers
+2. Headers are available in `ApiManagementGatewayLogs.ResponseHeaders`
+3. Standard token metrics (prompt_tokens, completion_tokens, total_tokens) are captured via LLM logging
+4. Request/response bodies are **not logged** (security requirement)
 
 ### Log Analytics Queries
 
-> **Note**: Standard token metrics (prompt_tokens, completion_tokens, total_tokens) are available in LLM logging tables. The queries below focus on cached_tokens which is captured via custom response headers.
+> **Note**: Standard token metrics (prompt_tokens, completion_tokens, total_tokens) are available in LLM logging tables. The queries below focus on deployment attribution and PTU spillover tracking using response headers.
 
-Query cached token savings by subscription:
+Requests by deployment name:
 ```kusto
 ApiManagementGatewayLogs
 | where OperationName == "ChatCompletions_Create"
 | extend Headers = parse_json(ResponseHeaders)
-| extend CachedTokens = toint(Headers["X-Cached-Tokens"])
-| extend Model = tostring(Headers["X-Model"])
-| where CachedTokens > 0
-| summarize 
-    TotalRequests = count(),
-    TotalCachedTokens = sum(CachedTokens),
-    AvgCachedTokensPerRequest = avg(CachedTokens)
-by ApimSubscriptionId, Model
-```
-
-Query cached token usage over time:
-```kusto
-ApiManagementGatewayLogs
-| where OperationName == "ChatCompletions_Create"
-| extend Headers = parse_json(ResponseHeaders)
-| extend CachedTokens = toint(Headers["X-Cached-Tokens"])
-| where CachedTokens > 0
+| extend DeploymentName = tostring(Headers["x-ms-deployment-name"])
+| where isnotempty(DeploymentName)
 | summarize
-    TotalRequests = count(),
-    TotalCachedTokens = sum(CachedTokens),
-    AvgCachedTokensPerRequest = avg(CachedTokens)
-by ApimSubscriptionId, bin(TimeGenerated, 1h)
+    TotalRequests = count()
+by ApimSubscriptionId, DeploymentName, bin(TimeGenerated, 1h)
 | order by TimeGenerated desc
 ```
 
-Requests with cache hits by model:
+Deployment name with spillover attribution:
 ```kusto
 ApiManagementGatewayLogs
 | where OperationName == "ChatCompletions_Create"
 | extend Headers = parse_json(ResponseHeaders)
-| extend CachedTokens = toint(Headers["X-Cached-Tokens"])
-| extend Model = tostring(Headers["X-Model"])
-| where CachedTokens > 0
+| extend DeploymentName = tostring(Headers["x-ms-deployment-name"])
+| extend SpilloverFrom = tostring(Headers["x-ms-spillover-from-deployment"])
 | summarize
-    CacheHitRequests = count(),
-    TotalCachedTokens = sum(CachedTokens)
-by Model, bin(TimeGenerated, 1d)
+    TotalRequests = count(),
+    SpilloverRequests = countif(isnotempty(SpilloverFrom))
+by ApimSubscriptionId, DeploymentName, bin(TimeGenerated, 1h)
 | order by TimeGenerated desc
 ```
 
 #### PTU Spillover Tracking
 
-When an Azure OpenAI PTU deployment is at capacity and spills over to a pay-as-you-go deployment, the `x-ms-spillover-from-deployment` response header is set by the service. This header is captured in the frontend response diagnostics and available in `ApiManagementGatewayLogs`.
+When an Azure OpenAI PTU deployment is at capacity and spills over to a pay-as-you-go deployment, the `x-ms-spillover-from-deployment` response header is set by the service. This header is captured in both the frontend and backend response diagnostics alongside `x-ms-deployment-name` and is available in `ApiManagementGatewayLogs`.
 
 Identify spillover events:
 ```kusto
@@ -366,7 +325,7 @@ Write-Output "Embedding dimension: $($response.data[0].embedding.Count)"
 
 ### Adding Custom Policies
 
-The API policy in `modules/apim/main.tf` includes built-in streaming detection and cached token extraction. To add additional custom policies (e.g., rate limiting, quotas), add them to the inbound section after the existing policies:
+The API policy in `modules/apim/main.tf` includes built-in streaming detection. To add additional custom policies (e.g., rate limiting, quotas), add them to the inbound section after the existing policies:
 
 ```hcl
 resource "azurerm_api_management_api_policy" "openai" {
@@ -381,13 +340,13 @@ resource "azurerm_api_management_api_policy" "openai" {
         <rate-limit calls="100" renewal-period="60" />
         <quota calls="1000" renewal-period="3600" />
     </inbound>
-    <!-- backend, outbound (cached token extraction), on-error -->
+    <!-- backend, outbound, on-error -->
 </policies>
 XML
 }
 ```
 
-> **Important**: Do not remove the streaming detection from `<inbound>` or the cached token extraction from `<outbound>` — these are required for accurate chargeback reporting. When using XML entities in C# expressions within Terraform heredoc, use `&lt;` for `<`, `&amp;&amp;` for `&&`, and `&quot;` for `"` to ensure valid XML.
+> **Important**: Do not remove the streaming detection from `<inbound>` — this is required for accurate request processing. When using XML entities in C# expressions within Terraform heredoc, use `&lt;` for `<`, `&amp;&amp;` for `&&`, and `&quot;` for `"` to ensure valid XML.
 
 ### Environment-Specific Configurations
 
